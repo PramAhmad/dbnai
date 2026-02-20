@@ -15,6 +15,16 @@ static void on_context_delete(GSimpleAction *action, GVariant *param, gpointer d
     g_print("Delete coii\n");
 }
 
+static void on_context_new_clicked(GtkWidget *button, gpointer data)
+{
+    g_print("Create coi\n");
+}
+
+static void on_context_edit_clicked(GtkWidget *button, gpointer data)
+{
+    g_print("Edit Coii\n");
+}
+
 static void on_db_selected(GtkWidget *button, gpointer data)
 {
     const char *db_type = gtk_button_get_label(GTK_BUTTON(button));
@@ -55,25 +65,23 @@ static void show_create_connection_dialog(GtkWidget *parent)
 
 static GtkPopover *create_context_menu(GtkWidget *item)
 {
-    GMenu *menu = g_menu_new();
-    g_menu_append(menu, "New Connection", "context.new");
-
-    GActionGroup *group = (GActionGroup *)g_simple_action_group_new();
-    g_action_map_add_action_entries(G_ACTION_MAP(group),
-                                    (GActionEntry[]){
-                                        {"new", on_context_new, NULL, NULL, NULL},
-                                        {"edit", on_context_edit, NULL, NULL, NULL},
-                                        {"delete", on_context_delete, NULL, NULL, NULL},
-                                        {NULL}},
-                                    -1, NULL);
-
-    GtkPopover *popover = GTK_POPOVER(gtk_popover_menu_new_from_model(G_MENU_MODEL(menu)));
-    gtk_widget_insert_action_group(GTK_WIDGET(popover), "context", group);
+    GtkPopover *popover = GTK_POPOVER(gtk_popover_new());
     gtk_popover_set_autohide(popover, TRUE);
-    // gtk_widget_add_css_class(GTK_WIDGET(popover), "flat");
 
-    g_object_unref(menu);
-    g_object_unref(group);
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_margin_top(box, 4);
+    gtk_widget_set_margin_bottom(box, 4);
+
+    GtkWidget *btn_new = gtk_button_new_with_label("New Connection");
+    GtkWidget *btn_edit = gtk_button_new_with_label("Edit Connection");
+
+    g_signal_connect(btn_new, "clicked", G_CALLBACK(on_context_new_clicked), item);
+    g_signal_connect(btn_edit, "clicked", G_CALLBACK(on_context_edit_clicked), item);
+
+    gtk_box_append(GTK_BOX(box), btn_new);
+    gtk_box_append(GTK_BOX(box), btn_edit);
+
+    gtk_popover_set_child(popover, box);
 
     return popover;
 }
