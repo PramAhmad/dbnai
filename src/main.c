@@ -42,7 +42,6 @@ static void setup_css(void) {
 
 static void activate(GtkApplication *app, gpointer user_data)
 {
-    setup_actions(app);
     setup_css();
 
     GtkWidget *window = gtk_application_window_new(app);
