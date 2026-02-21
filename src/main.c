@@ -2,53 +2,74 @@
 #include "ui/navbar.h"
 #include "ui/sidebar.h"
 #include "ui/content.h"
+#include "style/css.h"
 
 #define TITLE "DBNAI"
 
-static void setup_css(void) {
-    GtkCssProvider *provider = gtk_css_provider_new();
-    gtk_css_provider_load_from_data(provider,
-        ".navbar {"
-        "  border-bottom: 1px solid #ddd;"
-        "  padding: 0 6px;"
-        "}"
-        "button {"
-        "  border: none;"
-        "  background: transparent;"
-        "  padding: 0;"
-        "  margin: 0;"
-        "  box-shadow: none;"
-        "  font-weight: normal;"
-        "}"
-        "button:hover {"
-        "  background: #eaeaea;"
-        "  border-radius: 4px;"
-        "}"
-        ".sidebar {"
-        "  background: #f5f5f5;"
-        "  border-right: 1px solid #ccc;"
-        "  border-bottom: 1px solid #ccc;"
-        "  padding: 10px;"
-        "}"
-        "popover {"
-        "  background: #f5f5f5;"
-        "  box-shadow: none;"
-        "  border-radius: 0;"
-        "}"
-        ".content-area {"
-        "  padding: 10px;"
-        "}",
-        -1);
-    gtk_style_context_add_provider_for_display(
-        gdk_display_get_default(),
-        GTK_STYLE_PROVIDER(provider),
-        GTK_STYLE_PROVIDER_PRIORITY_USER);
-    g_object_unref(provider);
+
+static void on_app_new(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    g_print("App: New\n");
+}
+
+static void on_app_open(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    g_print("App: Open\n");
+}
+
+static void on_app_save(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    g_print("App: Save\n");
+}
+
+static void on_app_save_as(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    g_print("App: Save As\n");
+}
+
+static void on_app_quit(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    GApplication *app = G_APPLICATION(user_data);
+    g_application_quit(app);
+}
+
+static void on_app_connect(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    g_print("App: Connect\n");
+}
+
+static void on_app_disconnect(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    g_print("App: Disconnect\n");
+}
+
+static void on_app_documentation(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    g_print("App: Documentation\n");
+}
+
+static void on_app_about(GSimpleAction *action, GVariant *param, gpointer user_data)
+{
+    g_print("App: About\n");
 }
 
 static void activate(GtkApplication *app, gpointer user_data)
 {
     setup_css();
+
+    const GActionEntry app_entries[] = {
+        { "new", on_app_new, NULL, NULL, NULL },
+        { "open", on_app_open, NULL, NULL, NULL },
+        { "save", on_app_save, NULL, NULL, NULL },
+        { "save_as", on_app_save_as, NULL, NULL, NULL },
+        { "quit", on_app_quit, NULL, NULL, NULL },
+        { "connect", on_app_connect, NULL, NULL, NULL },
+        { "disconnect", on_app_disconnect, NULL, NULL, NULL },
+        { "documentation", on_app_documentation, NULL, NULL, NULL },
+        { "about", on_app_about, NULL, NULL, NULL }
+    };
+
+    g_action_map_add_action_entries(G_ACTION_MAP(app), app_entries, G_N_ELEMENTS(app_entries), app);
 
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), TITLE);
