@@ -2,6 +2,10 @@
 #include "button.h"
 #define CLICKED "clicked"
 #define PRESSED "pressed"
+const char *DB_TYPE_NAMES[] = {
+    "MySQL",
+    "PostgreSQL",
+    "SQLite"};
 
 static void on_context_new(GSimpleAction *action, GVariant *param, gpointer data){
     g_print("Create coi\n");
@@ -20,8 +24,21 @@ static void on_context_edit_clicked(GtkWidget *button, gpointer data){
 }
 
 static void on_db_selected(GtkWidget *button, gpointer data){
-    const char *db_type = gtk_button_get_label(GTK_BUTTON(button));
-    g_print("Selected DB: %s\n", db_type);
+    DatabaseType db_type = GPOINTER_TO_INT(data);
+    switch (db_type)
+    {
+    case POSTGRESQL:
+        g_print("PostgreSQL selected\n");
+        break;
+    case MYSQL:
+        g_print("MySQL selected\n");
+        break;
+    case SQLITE:
+        g_print("SQLite selected\n");
+        break;
+    default:
+        break;
+    }
 }
 
 static void show_create_connection_dialog(GtkWidget *parent){
@@ -37,14 +54,14 @@ static void show_create_connection_dialog(GtkWidget *parent){
     gtk_widget_set_margin_start(content, 15);
     gtk_widget_set_margin_end(content, 15);
 
-    GtkWidget *btn_pg = create_menu_button(DB_POSTGRESQL, NULL);
-    GtkWidget *btn_mysql = create_menu_button(DB_MYSQL, NULL);
-    GtkWidget *btn_sqlite = create_menu_button(DB_SQLITE, NULL);
+    GtkWidget *btn_pg = create_menu_button(DB_TYPE_NAMES[POSTGRESQL], NULL);
+    GtkWidget *btn_mysql = create_menu_button(DB_TYPE_NAMES[MYSQL], NULL);
+    GtkWidget *btn_sqlite = create_menu_button(DB_TYPE_NAMES[SQLITE], NULL);
     GtkWidget *btn_cancel = create_menu_button("Cancel", NULL);
 
-    g_signal_connect(btn_pg, CLICKED, G_CALLBACK(on_db_selected), NULL);
-    g_signal_connect(btn_mysql, CLICKED, G_CALLBACK(on_db_selected), NULL);
-    g_signal_connect(btn_sqlite, CLICKED, G_CALLBACK(on_db_selected), NULL);
+    g_signal_connect(btn_pg, CLICKED, G_CALLBACK(on_db_selected), GINT_TO_POINTER(POSTGRESQL));
+    g_signal_connect(btn_mysql, CLICKED, G_CALLBACK(on_db_selected), GINT_TO_POINTER(MYSQL));
+    g_signal_connect(btn_sqlite, CLICKED, G_CALLBACK(on_db_selected), GINT_TO_POINTER(SQLITE));
     g_signal_connect_swapped(btn_cancel, CLICKED, G_CALLBACK(gtk_window_destroy), dialog);
 
     gtk_box_append(GTK_BOX(content), btn_pg);
@@ -96,7 +113,7 @@ GtkWidget *create_sidebar(void){
     gtk_widget_add_css_class(sidebar, "sidebar");
 
     GtkWidget *btn_create = create_menu_button("Create Connection", NULL);
-    
+
     gtk_box_append(GTK_BOX(sidebar), btn_create);
 
     g_signal_connect(btn_create, CLICKED,

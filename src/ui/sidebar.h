@@ -3,9 +3,9 @@
 
 #include <gtk/gtk.h>
 typedef enum {
-    DB_POSTGRESQL,
-    DB_MYSQL,
-    DB_SQLITE
+    POSTGRESQL,
+    MYSQL,
+    SQLITE
 } DatabaseType;
 
 GtkWidget* create_sidebar(void);
