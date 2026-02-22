@@ -1,5 +1,6 @@
 #include "dialog_connection.h"
 #include "button.h"
+#include <libpq-fe.h>
 #define CLICKED "clicked"
 #define PRESSED "pressed"
 const char *DB_TYPE_NAMES[] = {"PostgreSQL", "MySQL", "SQLite"};
@@ -12,8 +13,42 @@ static void on_pg_button_press(GtkWidget *button, gpointer data)
     const char *username = gtk_editable_get_text(GTK_EDITABLE(credentials[2]));
     const char *password = gtk_editable_get_text(GTK_EDITABLE(credentials[3]));
     const char *db_name = gtk_editable_get_text(GTK_EDITABLE(credentials[4]));
+    /**
+     * docs https://www.postgresql.org/docs/current/libpq.htmls ^^
+     */
+    char conninfo[512];
+    if(strlen(db_name) == 0){
+        snprintf(conninfo, sizeof(conninfo), "host=%s port=%s user=%s password=%s dbname=postgres",
+                host, port, username, password);
+    }else{
+        snprintf(conninfo, sizeof(conninfo), "host=%s port=%s user=%s password=%s dbname=%s",
+                host, port, username, password, db_name);
+    }
+    PGconn *conn = PQconnectdb(conninfo);
+    if(PQstatus(conn) != CONNECTION_OK){
+        g_print("failed: %s\n", PQerrorMessage(conn));
+        PQfinish(conn);
+    } else {
+      PGresult *res;
+        if(strlen(db_name) == 0){
+            res = PQexec(conn,
+                "SELECT datname FROM pg_database WHERE datistemplate = false;"
+            );
+        } else {
+            res = PQexec(conn, "SELECT current_database();");
+        }
 
-    g_free(credentials);
+        if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+            int rows = PQntuples(res);
+            for (int i = 0; i < rows; i++) {
+                printf("Database: %s\n", PQgetvalue(res, i, 0));
+            }
+        }
+        PQclear(res);
+    }
+
+    // g_free(conninfo);
+    // g_free(credentials);
 }
 
 static void on_db_selected(GtkWidget *button, gpointer data)
@@ -51,6 +86,10 @@ static void on_db_selected(GtkWidget *button, gpointer data)
 
         GtkWidget *btn_connect = create_menu_button("Connect", NULL);
 
+        /**
+         * @NOTED : is array of pointer every credential pointer 
+         * and i allocate to heap 5 pointer gtkWidget , bisi poho pram lol
+         */
         GtkWidget **credential = g_malloc(sizeof(GtkWidget *) * 5);
         credential[0] = host;
         credential[1] = port;
