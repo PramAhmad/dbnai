@@ -1,6 +1,7 @@
 #ifndef UI_DIALOG_CONNECTION_H
 #define UI_DIALOG_CONNECTION_H
 #include <gtk/gtk.h>
+#include "sidebar.h"
 typedef enum {
     POSTGRESQL,
     MYSQL,
@@ -20,5 +21,15 @@ typedef struct {
     GtkWidget *err_password;
 } PgForm;
 
-void show_create_connection_dialog(GtkWidget *parent);
+typedef struct {
+    Sidebar *sidebar;
+    DatabaseType db_type;
+} DbSelectContext;
+
+typedef struct {
+    PgForm *form;
+    Sidebar *sidebar;
+} PgConnectContext;
+
+void show_create_connection_dialog(GtkWidget *parent, gpointer data);
 #endif

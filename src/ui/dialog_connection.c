@@ -6,7 +6,8 @@
 const char *DB_TYPE_NAMES[] = {"PostgreSQL", "MySQL", "SQLite"};
 
 static void on_pg_button_press(GtkWidget *button, gpointer data){
-    PgForm *form = (PgForm *)data;
+    PgConnectContext *ctx = (PgConnectContext *)data;
+    PgForm *form = ctx->form;
     const char *host = gtk_editable_get_text(GTK_EDITABLE(form->host));
     const char *port = gtk_editable_get_text(GTK_EDITABLE(form->port));
     const char *username = gtk_editable_get_text(GTK_EDITABLE(form->username));
@@ -68,16 +69,19 @@ static void on_pg_button_press(GtkWidget *button, gpointer data){
     }else{
         PGresult *res;
         if (strlen(db_name) == 0){
-            res = PQexec(conn,
-                         "SELECT datname FROM pg_database WHERE datistemplate = false;");
+            res = PQexec(conn, "SELECT datname FROM pg_database WHERE datistemplate = false;");
         }else{
             res = PQexec(conn, "SELECT current_database();");
         }
 
         if (PQresultStatus(res) == PGRES_TUPLES_OK){
+            gtk_tree_store_clear(ctx->sidebar->store);
             int rows = PQntuples(res);
             for (int i = 0; i < rows; i++){
-                printf("Database: %s\n", PQgetvalue(res, i, 0));
+                GtkTreeIter iter;
+                gtk_tree_store_append(ctx->sidebar->store, &iter, NULL);
+                gtk_tree_store_set(ctx->sidebar->store, &iter, 0,
+                PQgetvalue(res, i, 0), -1);
             }
         }
         PQclear(res);
@@ -88,9 +92,12 @@ static void on_pg_button_press(GtkWidget *button, gpointer data){
 }
 
 static void on_db_selected(GtkWidget *button, gpointer data){
-    DatabaseType db_type = GPOINTER_TO_INT(data);
+    DbSelectContext *context = (DbSelectContext *)data;
+    DatabaseType db_type = context->db_type;
+    Sidebar *sidebar = context->sidebar;
     switch (db_type){
     case POSTGRESQL:
+
         GtkWindow *parent = GTK_WINDOW(gtk_widget_get_root(button));
         gtk_window_destroy(GTK_WINDOW(gtk_widget_get_root(button)));
         GtkWidget *dialog = gtk_dialog_new();
@@ -134,11 +141,6 @@ static void on_db_selected(GtkWidget *button, gpointer data){
         gtk_entry_set_placeholder_text(GTK_ENTRY(db), "Database Name");
 
         GtkWidget *btn_connect = create_menu_button("Connect", NULL);
-
-        /**
-         * @NOTED : is array of pointer every credential pointer
-         * and i allocate to heap 5 pointer gtkWidget , bisi poho pram lol
-         */
         PgForm *form = g_malloc(sizeof(PgForm));
         form->host = host;
         form->port = port;
@@ -150,19 +152,22 @@ static void on_db_selected(GtkWidget *button, gpointer data){
         form->err_username = err_user;
         form->err_password = err_pass;
 
-        gtk_box_append(GTK_BOX(content), label);
-        gtk_box_append(GTK_BOX(content), host);
-        gtk_box_append(GTK_BOX(content), err_host);
-        gtk_box_append(GTK_BOX(content), port);
-        gtk_box_append(GTK_BOX(content), err_port);
-        gtk_box_append(GTK_BOX(content), username);
-        gtk_box_append(GTK_BOX(content), err_user);
-        gtk_box_append(GTK_BOX(content), password);
-        gtk_box_append(GTK_BOX(content), err_pass);
-        gtk_box_append(GTK_BOX(content), db);
-        gtk_box_append(GTK_BOX(content), btn_connect);
-
-        g_signal_connect(btn_connect, CLICKED, G_CALLBACK(on_pg_button_press), form);
+        GtkWidget *widgets[] = {
+            label,
+            host,err_host,
+            port,err_port,
+            username,err_user,
+            password,err_pass,
+            db,
+            btn_connect
+        };
+        for (int i = 0; i < G_N_ELEMENTS(widgets); i++){
+            gtk_box_append(GTK_BOX(content), widgets[i]);
+        };
+        PgConnectContext *ctx = g_malloc(sizeof(PgConnectContext));
+        ctx->form = form;
+        ctx->sidebar = sidebar;
+        g_signal_connect(btn_connect, CLICKED, G_CALLBACK(on_pg_button_press), ctx);
 
         gtk_window_set_child(GTK_WINDOW(dialog), content);
         gtk_window_present(GTK_WINDOW(dialog));
@@ -178,11 +183,12 @@ static void on_db_selected(GtkWidget *button, gpointer data){
     }
 }
 
-void show_create_connection_dialog(GtkWidget *parent){
+void show_create_connection_dialog(GtkWidget *widget, gpointer data){
+    Sidebar *sidebar = (Sidebar *)data;
     GtkWidget *dialog = gtk_dialog_new();
     gtk_window_set_title(GTK_WINDOW(dialog), "New Connection");
     gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
-    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(gtk_widget_get_root(parent)));
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(gtk_widget_get_root(widget)));
     gtk_window_set_default_size(GTK_WINDOW(dialog), 300, 200);
 
     GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
@@ -196,9 +202,18 @@ void show_create_connection_dialog(GtkWidget *parent){
     GtkWidget *btn_sqlite = create_menu_button(DB_TYPE_NAMES[SQLITE], NULL);
     GtkWidget *btn_cancel = create_menu_button("Cancel", NULL);
 
-    g_signal_connect(btn_pg, CLICKED, G_CALLBACK(on_db_selected), GINT_TO_POINTER(POSTGRESQL));
-    g_signal_connect(btn_mysql, CLICKED, G_CALLBACK(on_db_selected), GINT_TO_POINTER(MYSQL));
-    g_signal_connect(btn_sqlite, CLICKED, G_CALLBACK(on_db_selected), GINT_TO_POINTER(SQLITE));
+    DbSelectContext *pg_ctx = g_malloc(sizeof(DbSelectContext));
+    pg_ctx->sidebar = sidebar;
+    pg_ctx->db_type = POSTGRESQL;
+    g_signal_connect(btn_pg, CLICKED, G_CALLBACK(on_db_selected), pg_ctx);
+    DbSelectContext *mysql_ctx = g_malloc(sizeof(DbSelectContext));
+    mysql_ctx->sidebar = sidebar;
+    mysql_ctx->db_type = MYSQL;
+    g_signal_connect(btn_mysql, CLICKED, G_CALLBACK(on_db_selected), mysql_ctx);
+    DbSelectContext *sqlite_ctx = g_malloc(sizeof(DbSelectContext));
+    sqlite_ctx->sidebar = sidebar;
+    sqlite_ctx->db_type = SQLITE;
+    g_signal_connect(btn_sqlite, CLICKED, G_CALLBACK(on_db_selected), sqlite_ctx);
     g_signal_connect_swapped(btn_cancel, CLICKED, G_CALLBACK(gtk_window_destroy), dialog);
 
     gtk_box_append(GTK_BOX(content), btn_pg);

@@ -65,25 +65,31 @@ static gboolean on_right_click(GtkGestureClick *gesture, int n_press, double x, 
 
 GtkWidget *create_sidebar(void)
 {
-    GtkWidget *sidebar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    gtk_widget_set_size_request(sidebar, 200, -1);
-    gtk_widget_add_css_class(sidebar, "sidebar");
+    Sidebar *sidebar = g_malloc(sizeof(Sidebar));
+
+    sidebar->container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+    gtk_widget_set_size_request(sidebar->container, 200, -1);
+    gtk_widget_add_css_class(sidebar->container, "sidebar");
 
     GtkWidget *btn_create = create_menu_button("Create Connection", NULL);
+    gtk_box_append(GTK_BOX(sidebar->container), btn_create);
 
-    gtk_box_append(GTK_BOX(sidebar), btn_create);
+    sidebar->store = gtk_tree_store_new(1, G_TYPE_STRING);
+    sidebar->treeview = gtk_tree_view_new_with_model(GTK_TREE_MODEL(sidebar->store));
+
+    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+    GtkTreeViewColumn *column =
+    gtk_tree_view_column_new_with_attributes("Connections", renderer, "text", 0, NULL);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(sidebar->treeview), column);
+
+    gtk_box_append(GTK_BOX(sidebar->container), sidebar->treeview);
+
+    // Attach sidebar struct to widget
+    g_object_set_data_full(G_OBJECT(sidebar->container), "sidebar", sidebar, g_free);
 
     g_signal_connect(btn_create, CLICKED,
                      G_CALLBACK(show_create_connection_dialog),
                      sidebar);
 
-    GtkPopover *popover = create_context_menu(sidebar);
-    gtk_widget_set_parent(GTK_WIDGET(popover), sidebar);
-
-    GtkGestureClick *gesture = GTK_GESTURE_CLICK(gtk_gesture_click_new());
-    gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(gesture), GDK_BUTTON_SECONDARY);
-    g_signal_connect(gesture, PRESSED, G_CALLBACK(on_right_click), popover);
-    gtk_widget_add_controller(sidebar, GTK_EVENT_CONTROLLER(gesture));
-
-    return sidebar;
+    return sidebar->container;
 }
