@@ -79,12 +79,19 @@ GtkWidget *create_sidebar(void)
 
     GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
     GtkTreeViewColumn *column =
-    gtk_tree_view_column_new_with_attributes("Connections", renderer, "text", 0, NULL);
+        gtk_tree_view_column_new_with_attributes("Connections", renderer, "text", 0, NULL);
     gtk_tree_view_append_column(GTK_TREE_VIEW(sidebar->treeview), column);
 
-    gtk_box_append(GTK_BOX(sidebar->container), sidebar->treeview);
+    GtkWidget *scroll = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
+                                   GTK_POLICY_NEVER,
+                                   GTK_POLICY_AUTOMATIC);
 
-    // Attach sidebar struct to widget
+    gtk_widget_set_vexpand(scroll, TRUE); // biar isi penuh
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroll), sidebar->treeview);
+
+    gtk_box_append(GTK_BOX(sidebar->container), scroll);
+
     g_object_set_data_full(G_OBJECT(sidebar->container), "sidebar", sidebar, g_free);
 
     g_signal_connect(btn_create, CLICKED,

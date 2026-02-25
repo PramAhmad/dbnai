@@ -74,16 +74,60 @@ static void on_pg_button_press(GtkWidget *button, gpointer data){
             res = PQexec(conn, "SELECT current_database();");
         }
 
-        if (PQresultStatus(res) == PGRES_TUPLES_OK){
-            gtk_tree_store_clear(ctx->sidebar->store);
-            int rows = PQntuples(res);
-            for (int i = 0; i < rows; i++){
-                GtkTreeIter iter;
-                gtk_tree_store_append(ctx->sidebar->store, &iter, NULL);
-                gtk_tree_store_set(ctx->sidebar->store, &iter, 0,
-                PQgetvalue(res, i, 0), -1);
+      if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+        gtk_tree_store_clear(ctx->sidebar->store);
+        int rows = PQntuples(res);
+        for (int i = 0; i < rows; i++) {
+            const char *db = PQgetvalue(res, i, 0);
+            GtkTreeIter db_iter;
+            gtk_tree_store_append(ctx->sidebar->store, &db_iter, NULL);
+            gtk_tree_store_set(ctx->sidebar->store, &db_iter, 0, db, -1);
+            // conn ke db nya buat ambil skema
+            char conninfo_db[512];
+            snprintf(conninfo_db, sizeof(conninfo_db),
+                 "host=%s port=%s user=%s password=%s dbname=%s",
+                 host, port, username, password, db);
+
+            PGconn *db_conn = PQconnectdb(conninfo_db);
+            if (PQstatus(db_conn) != CONNECTION_OK) {
+                PQfinish(db_conn);
+                continue;
             }
-        }
+
+            PGresult *schemas = PQexec(db_conn,
+                "SELECT schema_name FROM information_schema.schemata "
+                "WHERE schema_name NOT LIKE 'pg_%' "
+                "AND schema_name != 'information_schema';");
+
+            for (int s = 0; s < PQntuples(schemas); s++) {
+                const char *schema_name = PQgetvalue(schemas, s, 0);
+
+                GtkTreeIter schema_iter;
+                gtk_tree_store_append(ctx->sidebar->store, &schema_iter, &db_iter);
+                gtk_tree_store_set(ctx->sidebar->store, &schema_iter, 0, schema_name, -1);
+                // scrollable tree store
+                char query[256];
+                snprintf(query, sizeof(query),
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_schema='%s';",
+                        schema_name);
+
+                PGresult *tables = PQexec(db_conn, query);
+
+                for (int t = 0; t < PQntuples(tables); t++) {
+                    GtkTreeIter table_iter;
+                    gtk_tree_store_append(ctx->sidebar->store, &table_iter, &schema_iter);
+                    gtk_tree_store_set(ctx->sidebar->store, &table_iter, 0,
+                                    PQgetvalue(tables, t, 0), -1);
+                }
+
+                PQclear(tables);
+            }
+
+        PQclear(schemas);
+        PQfinish(db_conn);
+    }
+}
         PQclear(res);
     }
 
