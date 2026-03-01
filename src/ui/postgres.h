@@ -2,6 +2,8 @@
 #define POSTGRES_H
 #include <libpq-fe.h>
 #include "dialog_connection.h"
+#include "connection_store.h"
+#include "sidebar.h"
 
 typedef struct {
     GtkWidget *entry;
@@ -10,7 +12,8 @@ typedef struct {
     const char *field_name;
 } FormField;
 
-void validate_pg_form(PgForm *form);
-void connect_postgresql(PgConnectContext *ctx);
+void validate_pg_form(SqlForm *form);
+void connect_postgresql(SqlConnectContext *ctx);
+void load_saved_connection(Sidebar *sidebar, ConnectionInfo *info);
 
 #endif

@@ -1,9 +1,11 @@
 #include "postgres.h"
+#include "connection_store.h"
 #include <string.h>
 
 
-void validate_pg_form(PgForm *form) {
+void validate_pg_form(SqlForm *form) {
     FormField fields[] = {
+        {form->name, form->err_name, "Nama koneksi wajib diisi", "name"},
         {form->host, form->err_host, "Host wajib diisi", "host"},
         {form->port, form->err_port, "Port wajib diisi", "port"},
         {form->username, form->err_username, "Username wajib diisi", "username"},
@@ -204,8 +206,9 @@ void get_tree_databases(PGconn *conn, Sidebar *sidebar) {
 }
 
 
-void connect_postgresql(PgConnectContext *ctx) {
-    PgForm *form = ctx->form;
+void connect_postgresql(SqlConnectContext *ctx) {
+    SqlForm *form = ctx->form;
+    const char *conn_name = gtk_editable_get_text(GTK_EDITABLE(form->name));
     const char *host = gtk_editable_get_text(GTK_EDITABLE(form->host));
     const char *port = gtk_editable_get_text(GTK_EDITABLE(form->port));
     const char *username = gtk_editable_get_text(GTK_EDITABLE(form->username));
@@ -213,6 +216,11 @@ void connect_postgresql(PgConnectContext *ctx) {
     const char *db_name = gtk_editable_get_text(GTK_EDITABLE(form->db));
 
     validate_pg_form(form);
+
+    if (strlen(conn_name) == 0 || strlen(host) == 0 || 
+        strlen(port) == 0 || strlen(username) == 0 || strlen(password) == 0) {
+        return;
+    }
 
     const char *initial_db = (strlen(db_name) == 0) ? "postgres" : db_name;
 
@@ -223,6 +231,20 @@ void connect_postgresql(PgConnectContext *ctx) {
         return;
     }
 
+    if (ctx->conn_store) {
+        ConnectionInfo *info = connection_info_new(
+            conn_name, DB_TYPE_POSTGRESQL,
+            host, port, username, password, db_name
+        );
+        connection_store_add(ctx->conn_store, info);
+        connection_store_save(ctx->conn_store);
+    }
+
+    // Create connection root node (append ke tree)
+    GtkTreeIter conn_iter;
+    gtk_tree_store_append(ctx->sidebar->store, &conn_iter, NULL);
+    gtk_tree_store_set(ctx->sidebar->store, &conn_iter, 0, conn_name, -1);
+
     PGresult *res;
     if (strlen(db_name) == 0) {
         res = PQexec(conn, "SELECT datname FROM pg_database WHERE datistemplate = false;");
@@ -231,18 +253,61 @@ void connect_postgresql(PgConnectContext *ctx) {
     }
 
     if (PQresultStatus(res) == PGRES_TUPLES_OK) {
-        gtk_tree_store_clear(ctx->sidebar->store);
         int rows = PQntuples(res);
 
         for (int i = 0; i < rows; i++) {
             const char *db = PQgetvalue(res, i, 0);
 
             GtkTreeIter db_iter;
-            gtk_tree_store_append(ctx->sidebar->store, &db_iter, NULL);
+            gtk_tree_store_append(ctx->sidebar->store, &db_iter, &conn_iter);
             gtk_tree_store_set(ctx->sidebar->store, &db_iter, 0, db, -1);
 
             load_database(ctx->sidebar->store, &db_iter,
                          host, port, username, password, db);
+        }
+    }
+
+    PQclear(res);
+    PQfinish(conn);
+}
+
+void load_saved_connection(Sidebar *sidebar, ConnectionInfo *info) {
+    if (!info || info->type != DB_TYPE_POSTGRESQL) return;
+
+    const char *initial_db = (strlen(info->database) == 0) ? "postgres" : info->database;
+
+    PGconn *conn = pg_connect(info->host, info->port, info->username, 
+                              info->password, initial_db);
+    if (PQstatus(conn) != CONNECTION_OK) {
+        g_print("Failed to restore connection %s: %s\n", info->name, PQerrorMessage(conn));
+        PQfinish(conn);
+        return;
+    }
+
+    GtkTreeIter conn_iter;
+    gtk_tree_store_append(sidebar->store, &conn_iter, NULL);
+    gtk_tree_store_set(sidebar->store, &conn_iter, 0, info->name, -1);
+
+    PGresult *res;
+    if (strlen(info->database) == 0) {
+        res = PQexec(conn, "SELECT datname FROM pg_database WHERE datistemplate = false;");
+    } else {
+        res = PQexec(conn, "SELECT current_database();");
+    }
+
+    if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+        int rows = PQntuples(res);
+
+        for (int i = 0; i < rows; i++) {
+            const char *db = PQgetvalue(res, i, 0);
+
+            GtkTreeIter db_iter;
+            gtk_tree_store_append(sidebar->store, &db_iter, &conn_iter);
+            gtk_tree_store_set(sidebar->store, &db_iter, 0, db, -1);
+
+            load_database(sidebar->store, &db_iter,
+                         info->host, info->port, info->username, 
+                         info->password, db);
         }
     }
 
