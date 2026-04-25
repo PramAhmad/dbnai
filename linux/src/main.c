@@ -87,6 +87,7 @@ static void activate(GtkApplication *app, gpointer user_data)
 
     GtkWidget *sidebar = create_sidebar();
     GtkWidget *content = create_content_area();
+    content_attach_sidebar(content, sidebar_from_widget(sidebar));
 
     gtk_box_append(GTK_BOX(main_hbox), sidebar);
     gtk_box_append(GTK_BOX(main_hbox), content);

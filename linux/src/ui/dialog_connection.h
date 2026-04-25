@@ -2,24 +2,28 @@
 #define UI_DIALOG_CONNECTION_H
 #include <gtk/gtk.h>
 #include "sidebar.h"
+#include "connection_store.h"
+
 typedef enum {
     POSTGRESQL,
-    MYSQL,
+    DB_MYSQL,
     SQLITE
 } DatabaseType;
 
 typedef struct {
+    GtkWidget *name;        // Connection display name
     GtkWidget *host;
     GtkWidget *port;
     GtkWidget *password;
     GtkWidget *username;
     GtkWidget *db;
 
+    GtkWidget *err_name;
     GtkWidget *err_host;
     GtkWidget *err_port;
     GtkWidget *err_username;
     GtkWidget *err_password;
-} PgForm;
+} SqlForm;
 
 typedef struct {
     Sidebar *sidebar;
@@ -27,9 +31,11 @@ typedef struct {
 } DbSelectContext;
 
 typedef struct {
-    PgForm *form;
+    SqlForm *form;
     Sidebar *sidebar;
-} PgConnectContext;
+    ConnectionStore *conn_store;
+    DatabaseType db_type;
+} SqlConnectContext;
 
 void show_create_connection_dialog(GtkWidget *parent, gpointer data);
-#endif
+#endif // UI_DIALOG_CONNECTION_H

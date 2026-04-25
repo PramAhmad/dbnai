@@ -24,6 +24,7 @@ void setup_css(void) {
         "  border-bottom: 1px solid #ccc;"
         "  padding: 10px;"
         "}"
+        ".error { color: red; font-size: 12px; }"
         "popover {"
         "  background: #f5f5f5;"
         "  box-shadow: none;"

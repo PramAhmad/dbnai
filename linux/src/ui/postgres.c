@@ -36,12 +36,18 @@ static PGconn *pg_connect(const char *host, const char *port,
 }
 
 
-static void load_columns(PGconn *conn, GtkTreeStore *store, 
-                         GtkTreeIter *parent, const char *schema, 
-                         const char *table) {
+static void load_columns(PGconn *conn, GtkTreeStore *store,
+                         GtkTreeIter *parent, const char *schema,
+                         const char *table, const char *conn_id,
+                         const char *db_name) {
     GtkTreeIter col_parent;
     gtk_tree_store_append(store, &col_parent, parent);
-    gtk_tree_store_set(store, &col_parent, 0, "Columns", -1);
+    gtk_tree_store_set(store, &col_parent,
+                       SIDEBAR_COL_LABEL, "Columns",
+                       SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_OTHER,
+                       SIDEBAR_COL_CONN_ID, conn_id,
+                       SIDEBAR_COL_DB_NAME, db_name,
+                       -1);
 
     char query[512];
     snprintf(query, sizeof(query),
@@ -73,19 +79,30 @@ static void load_columns(PGconn *conn, GtkTreeStore *store,
 
             GtkTreeIter col_iter;
             gtk_tree_store_append(store, &col_iter, &col_parent);
-            gtk_tree_store_set(store, &col_iter, 0, col_display, -1);
+            gtk_tree_store_set(store, &col_iter,
+                               SIDEBAR_COL_LABEL, col_display,
+                               SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_OTHER,
+                               SIDEBAR_COL_CONN_ID, conn_id,
+                               SIDEBAR_COL_DB_NAME, db_name,
+                               -1);
         }
     }
     PQclear(res);
 }
 
 
-static void load_foreign_keys(PGconn *conn, GtkTreeStore *store, 
-                              GtkTreeIter *parent, const char *schema, 
-                              const char *table) {
+static void load_foreign_keys(PGconn *conn, GtkTreeStore *store,
+                              GtkTreeIter *parent, const char *schema,
+                              const char *table, const char *conn_id,
+                              const char *db_name) {
     GtkTreeIter fk_parent;
     gtk_tree_store_append(store, &fk_parent, parent);
-    gtk_tree_store_set(store, &fk_parent, 0, "Foreign Keys", -1);
+    gtk_tree_store_set(store, &fk_parent,
+                       SIDEBAR_COL_LABEL, "Foreign Keys",
+                       SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_OTHER,
+                       SIDEBAR_COL_CONN_ID, conn_id,
+                       SIDEBAR_COL_DB_NAME, db_name,
+                       -1);
 
     char query[1024];
     snprintf(query, sizeof(query),
@@ -121,15 +138,21 @@ static void load_foreign_keys(PGconn *conn, GtkTreeStore *store,
 
             GtkTreeIter fk_iter;
             gtk_tree_store_append(store, &fk_iter, &fk_parent);
-            gtk_tree_store_set(store, &fk_iter, 0, fk_display, -1);
+            gtk_tree_store_set(store, &fk_iter,
+                               SIDEBAR_COL_LABEL, fk_display,
+                               SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_OTHER,
+                               SIDEBAR_COL_CONN_ID, conn_id,
+                               SIDEBAR_COL_DB_NAME, db_name,
+                               -1);
         }
     }
     PQclear(res);
 }
 
 
-static void load_tables(PGconn *conn, GtkTreeStore *store, 
-                        GtkTreeIter *schema_iter, const char *schema) {
+static void load_tables(PGconn *conn, GtkTreeStore *store,
+                        GtkTreeIter *schema_iter, const char *schema,
+                        const char *conn_id, const char *db_name) {
     char query[256];
     snprintf(query, sizeof(query),
              "SELECT table_name FROM information_schema.tables "
@@ -143,18 +166,24 @@ static void load_tables(PGconn *conn, GtkTreeStore *store,
 
             GtkTreeIter table_iter;
             gtk_tree_store_append(store, &table_iter, schema_iter);
-            gtk_tree_store_set(store, &table_iter, 0, table_name, -1);
+            gtk_tree_store_set(store, &table_iter,
+                               SIDEBAR_COL_LABEL, table_name,
+                               SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_OTHER,
+                               SIDEBAR_COL_CONN_ID, conn_id,
+                               SIDEBAR_COL_DB_NAME, db_name,
+                               -1);
 
-            load_columns(conn, store, &table_iter, schema, table_name);
-            load_foreign_keys(conn, store, &table_iter, schema, table_name);
+            load_columns(conn, store, &table_iter, schema, table_name, conn_id, db_name);
+            load_foreign_keys(conn, store, &table_iter, schema, table_name, conn_id, db_name);
         }
     }
     PQclear(res);
 }
 
 
-static void load_schemas(PGconn *conn, GtkTreeStore *store, 
-                         GtkTreeIter *db_iter) {
+static void load_schemas(PGconn *conn, GtkTreeStore *store,
+                         GtkTreeIter *db_iter, const char *conn_id,
+                         const char *db_name) {
     PGresult *res = PQexec(conn,
         "SELECT schema_name FROM information_schema.schemata "
         "WHERE schema_name NOT LIKE 'pg_%' "
@@ -166,9 +195,14 @@ static void load_schemas(PGconn *conn, GtkTreeStore *store,
 
             GtkTreeIter schema_iter;
             gtk_tree_store_append(store, &schema_iter, db_iter);
-            gtk_tree_store_set(store, &schema_iter, 0, schema_name, -1);
+            gtk_tree_store_set(store, &schema_iter,
+                               SIDEBAR_COL_LABEL, schema_name,
+                               SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_OTHER,
+                               SIDEBAR_COL_CONN_ID, conn_id,
+                               SIDEBAR_COL_DB_NAME, db_name,
+                               -1);
 
-            load_tables(conn, store, &schema_iter, schema_name);
+            load_tables(conn, store, &schema_iter, schema_name, conn_id, db_name);
         }
     }
     PQclear(res);
@@ -178,7 +212,8 @@ static void load_schemas(PGconn *conn, GtkTreeStore *store,
 static void load_database(GtkTreeStore *store, GtkTreeIter *db_iter,
                           const char *host, const char *port,
                           const char *username, const char *password,
-                          const char *dbname) {
+                          const char *dbname,
+                          const char *conn_id) {
     PGconn *db_conn = pg_connect(host, port, username, password, dbname);
     if (PQstatus(db_conn) != CONNECTION_OK) {
         g_print("Failed to connect to %s: %s\n", dbname, PQerrorMessage(db_conn));
@@ -186,7 +221,7 @@ static void load_database(GtkTreeStore *store, GtkTreeIter *db_iter,
         return;
     }
 
-    load_schemas(db_conn, store, db_iter);
+    load_schemas(db_conn, store, db_iter, conn_id, dbname);
     PQfinish(db_conn);
 }
 
@@ -231,11 +266,12 @@ void connect_postgresql(SqlConnectContext *ctx) {
         return;
     }
 
+    ConnectionInfo *info = connection_info_new(
+        conn_name, DB_TYPE_POSTGRESQL,
+        host, port, username, password, db_name
+    );
+
     if (ctx->conn_store) {
-        ConnectionInfo *info = connection_info_new(
-            conn_name, DB_TYPE_POSTGRESQL,
-            host, port, username, password, db_name
-        );
         connection_store_add(ctx->conn_store, info);
         connection_store_save(ctx->conn_store);
     }
@@ -243,7 +279,12 @@ void connect_postgresql(SqlConnectContext *ctx) {
     // Create connection root node (append ke tree)
     GtkTreeIter conn_iter;
     gtk_tree_store_append(ctx->sidebar->store, &conn_iter, NULL);
-    gtk_tree_store_set(ctx->sidebar->store, &conn_iter, 0, conn_name, -1);
+    gtk_tree_store_set(ctx->sidebar->store, &conn_iter,
+                       SIDEBAR_COL_LABEL, conn_name,
+                       SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_CONNECTION,
+                       SIDEBAR_COL_CONN_ID, info->id,
+                       SIDEBAR_COL_DB_NAME, "",
+                       -1);
 
     PGresult *res;
     if (strlen(db_name) == 0) {
@@ -260,15 +301,24 @@ void connect_postgresql(SqlConnectContext *ctx) {
 
             GtkTreeIter db_iter;
             gtk_tree_store_append(ctx->sidebar->store, &db_iter, &conn_iter);
-            gtk_tree_store_set(ctx->sidebar->store, &db_iter, 0, db, -1);
+            gtk_tree_store_set(ctx->sidebar->store, &db_iter,
+                               SIDEBAR_COL_LABEL, db,
+                               SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_DATABASE,
+                               SIDEBAR_COL_CONN_ID, info->id,
+                               SIDEBAR_COL_DB_NAME, db,
+                               -1);
 
             load_database(ctx->sidebar->store, &db_iter,
-                         host, port, username, password, db);
+                         host, port, username, password, db, info->id);
         }
     }
 
     PQclear(res);
     PQfinish(conn);
+
+    if (!ctx->conn_store) {
+        connection_info_free(info);
+    }
 }
 
 void load_saved_connection(Sidebar *sidebar, ConnectionInfo *info) {
@@ -286,7 +336,12 @@ void load_saved_connection(Sidebar *sidebar, ConnectionInfo *info) {
 
     GtkTreeIter conn_iter;
     gtk_tree_store_append(sidebar->store, &conn_iter, NULL);
-    gtk_tree_store_set(sidebar->store, &conn_iter, 0, info->name, -1);
+    gtk_tree_store_set(sidebar->store, &conn_iter,
+                       SIDEBAR_COL_LABEL, info->name,
+                       SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_CONNECTION,
+                       SIDEBAR_COL_CONN_ID, info->id,
+                       SIDEBAR_COL_DB_NAME, "",
+                       -1);
 
     PGresult *res;
     if (strlen(info->database) == 0) {
@@ -303,11 +358,16 @@ void load_saved_connection(Sidebar *sidebar, ConnectionInfo *info) {
 
             GtkTreeIter db_iter;
             gtk_tree_store_append(sidebar->store, &db_iter, &conn_iter);
-            gtk_tree_store_set(sidebar->store, &db_iter, 0, db, -1);
+            gtk_tree_store_set(sidebar->store, &db_iter,
+                         SIDEBAR_COL_LABEL, db,
+                         SIDEBAR_COL_NODE_KIND, SIDEBAR_NODE_DATABASE,
+                         SIDEBAR_COL_CONN_ID, info->id,
+                         SIDEBAR_COL_DB_NAME, db,
+                         -1);
 
             load_database(sidebar->store, &db_iter,
                          info->host, info->port, info->username, 
-                         info->password, db);
+                     info->password, db, info->id);
         }
     }
 

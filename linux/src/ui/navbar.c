@@ -20,7 +20,7 @@ GtkWidget* create_navbar(GtkApplication *app) {
     }
 
     MenuItem database_items[] = {
-        {"Connect", "app.connect"},
+        {"New Connection", "app.connect"},
         {"Disconnect", "app.disconnect"}
     };
     GMenu *database_menu = g_menu_new();
@@ -41,6 +41,10 @@ GtkWidget* create_navbar(GtkApplication *app) {
     GtkWidget *file_button = create_menu_button("File", G_MENU_MODEL(file_menu));
     GtkWidget *database_button = create_menu_button("Database", G_MENU_MODEL(database_menu));
     GtkWidget *help_button = create_menu_button("Help", G_MENU_MODEL(help_menu));
+  
+    gtk_widget_add_css_class(file_button, "buttontransparent");
+    gtk_widget_add_css_class(database_button, "buttontransparent");
+    gtk_widget_add_css_class(help_button, "buttontransparent");
 
     gtk_box_append(GTK_BOX(navbar), file_button);
     gtk_box_append(GTK_BOX(navbar), database_button);
