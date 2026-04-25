@@ -1,6 +1,9 @@
 #include "sidebar.h"
 #include "button.h"
 #include "dialog_connection.h"
+#include "connection_store.h"
+#include "postgres.h"
+#include "mysql_handler.h"
 #define CLICKED "clicked"
 #define PRESSED "pressed"
 
@@ -74,12 +77,29 @@ GtkWidget *create_sidebar(void)
     GtkWidget *btn_create = create_menu_button("Create Connection", NULL);
     gtk_box_append(GTK_BOX(sidebar->container), btn_create);
 
-    sidebar->store = gtk_tree_store_new(1, G_TYPE_STRING);
+    sidebar->store = gtk_tree_store_new(SIDEBAR_N_COLS,
+                                        G_TYPE_STRING,
+                                        G_TYPE_INT,
+                                        G_TYPE_STRING,
+                                        G_TYPE_STRING);
     sidebar->treeview = gtk_tree_view_new_with_model(GTK_TREE_MODEL(sidebar->store));
+
+    sidebar->conn_store = connection_store_new();
+    connection_store_load(sidebar->conn_store);
+
+    // Load saved connections ke tree
+    for (GList *l = sidebar->conn_store->connections; l != NULL; l = l->next) {
+        ConnectionInfo *info = (ConnectionInfo *)l->data;
+        if (info->type == DB_TYPE_POSTGRESQL) {
+            load_saved_connection(sidebar, info);
+        } else if (info->type == DB_TYPE_MYSQL) {
+            load_saved_mysql_connection(sidebar, info);
+        }
+    }
 
     GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
     GtkTreeViewColumn *column =
-        gtk_tree_view_column_new_with_attributes("Connections", renderer, "text", 0, NULL);
+        gtk_tree_view_column_new_with_attributes("Connections", renderer, "text", SIDEBAR_COL_LABEL, NULL);
     gtk_tree_view_append_column(GTK_TREE_VIEW(sidebar->treeview), column);
 
     GtkWidget *scroll = gtk_scrolled_window_new();
@@ -99,4 +119,10 @@ GtkWidget *create_sidebar(void)
                      sidebar);
 
     return sidebar->container;
+}
+
+Sidebar* sidebar_from_widget(GtkWidget *container)
+{
+    if (!container) return NULL;
+    return (Sidebar *)g_object_get_data(G_OBJECT(container), "sidebar");
 }
