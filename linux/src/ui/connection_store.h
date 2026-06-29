@@ -3,26 +3,22 @@
 
 #include <gtk/gtk.h>
 
-typedef enum {
-    DB_TYPE_POSTGRESQL,
-    DB_TYPE_MYSQL,
-    DB_TYPE_SQLITE
-} DbType;
+#include "../../../shared/db_types.h"
 
 typedef struct {
-    char *id;           
-    char *name;         
-    DbType type;
-    char *host;
-    char *port;
-    char *username;
-    char *password;
-    char *database;
+  char *id;
+  char *name;
+  DbType type;
+  char *host;
+  char *port;
+  char *username;
+  char *password;
+  char *database;
 } ConnectionInfo;
 
 typedef struct _ConnectionStore {
-    GList *connections;  
-    char *config_path;
+  GList *connections;
+  char *config_path;
 } ConnectionStore;
 
 ConnectionStore *connection_store_new(void);
