@@ -9,3 +9,15 @@ For Windows, we developed DBmrap using the Windows API, which allows us to creat
 
 ## macOS
 On macOS, we utilized SwiftUI to build DBmrap, providing a modern and intuitive user interface that takes advantage of the latest features of the macOS platform. This allows us to offer a native experience for macOS users while maintaining high performance and efficiency in managing databases.
+
+## Project Goals
+
+DBMRAP aims to provide a fast, lightweight, and truly native database client for modern desktop operating systems. As computer hardware continues to become more powerful, many desktop applications have also become increasingly large and memory-intensive, often relying on heavyweight runtime environments for relatively simple tasks.
+
+This project takes a different approach. DBMRAP focuses on efficient resource usage, native performance, and minimal dependencies. By using each platform's native UI framework and a modular database architecture, the application remains responsive, portable, and easy to maintain without unnecessary software bloat.
+
+The project also emphasizes clean architecture, reusable database drivers, and maintainable code, making it suitable for long-term development and future platform expansion
+
+## Documentation
+For information on the codebase structure, design patterns (Linux/Windows decoupling), and C Clean Code guidelines, please refer to:
+*   [Architecture & Clean Code Guidelines (docs/ARCHITECTURE.md)](docs/ARCHITECTURE.md)
