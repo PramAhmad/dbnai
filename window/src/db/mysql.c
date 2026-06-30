@@ -6,14 +6,31 @@
 MySqlLib mysql_lib = {0};
 
 BOOL mysql_init_lib(void) {
+  static BOOL alert_shown = FALSE;
   if (mysql_lib.hLib)
     return TRUE;
 
+  DWORD err1 = 0;
   mysql_lib.hLib = LoadLibraryA("libmariadb.dll");
   if (!mysql_lib.hLib) {
+    err1 = GetLastError();
     mysql_lib.hLib = LoadLibraryA("libmysql.dll");
   }
   if (!mysql_lib.hLib) {
+    if (!alert_shown) {
+      DWORD err2 = GetLastError();
+      char msg[1024];
+      snprintf(msg, sizeof(msg),
+               "Failed to load libmariadb.dll (Error Code: %lu) or libmysql.dll (Error Code: %lu).\n\n"
+               "Possible reasons:\n"
+               "1. Missing dependency DLLs (like plugin DLLs, MSVC runtime, etc.)\n"
+               "2. Missing Visual C++ Redistributable (VCRedist)\n"
+               "3. Bitness mismatch (e.g. 64-bit DLL with 32-bit executable)\n\n"
+               "Please ensure all required DLLs are in the same folder as dbmrap.exe.",
+               err1, err2);
+      MessageBoxA(NULL, msg, "MySQL/MariaDB Driver Error", MB_OK | MB_ICONERROR);
+      alert_shown = TRUE;
+    }
     return FALSE;
   }
 
@@ -210,8 +227,6 @@ static void mysql_load_tables(MYSQL *conn, DbTreeCallback cb, void *user_data,
 void mysql_load_tree(ConnectionInfo *info, DbTreeCallback cb, void *user_data,
                      void *conn_handle) {
   if (!mysql_init_lib()) {
-    MessageBoxA(NULL, "Failed to load libmariadb.dll or libmysql.dll.\n",
-                "MySQL/MariaDB Driver Error", MB_OK | MB_ICONERROR);
     cb(user_data, conn_handle, NODE_OTHER,
        "Failed to load libmariadb.dll or libmysql.dll", info->id, "", "", "");
     return;
@@ -276,8 +291,6 @@ void mysql_run_query(ConnectionInfo *info, const char *active_db,
                      DbRowCallback row_cb, DbStatusCallback status_cb,
                      void *user_data) {
   if (!mysql_init_lib()) {
-    MessageBoxA(NULL, "Failed to load libmariadb.dll or libmysql.dll.\n",
-                "MySQL/MariaDB Driver Error", MB_OK | MB_ICONERROR);
     status_cb(user_data,
               "Failed to load libmariadb.dll or libmysql.dll. Make sure the "
               "DLL is in the executable directory or path.");

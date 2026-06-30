@@ -6,11 +6,26 @@
 PostgresLib pg_lib = {0};
 
 BOOL postgres_init(void) {
+  static BOOL alert_shown = FALSE;
   if (pg_lib.hLib)
     return TRUE;
 
   pg_lib.hLib = LoadLibraryA("libpq.dll");
   if (!pg_lib.hLib) {
+    if (!alert_shown) {
+      DWORD err = GetLastError();
+      char msg[1024];
+      snprintf(msg, sizeof(msg),
+               "Failed to load libpq.dll (Error Code: %lu).\n\n"
+               "Possible reasons:\n"
+               "1. Missing dependency DLLs (like libcrypto-3-x64-*.dll, libssl-3-x64-*.dll, etc.)\n"
+               "2. Missing Visual C++ Redistributable (VCRedist)\n"
+               "3. Bitness mismatch (e.g. 64-bit DLL with 32-bit executable)\n\n"
+               "Please ensure all required DLLs are in the same folder as dbmrap.exe.",
+               err);
+      MessageBoxA(NULL, msg, "PostgreSQL Driver Error", MB_OK | MB_ICONERROR);
+      alert_shown = TRUE;
+    }
     return FALSE;
   }
 
@@ -204,12 +219,6 @@ static void pg_load_schemas(PGconn *conn, DbTreeCallback cb, void *user_data,
 void pg_load_tree(ConnectionInfo *info, DbTreeCallback cb, void *user_data,
                   void *conn_handle) {
   if (!postgres_init()) {
-    MessageBoxA(
-        NULL,
-        "Failed to load libpq.dll.\n\nPlease run 'make -f Makefile.mingw "
-        "bundle-dlls' or place libpq.dll and its dependency DLLs (libcrypto, "
-        "libssl, etc.) in the same directory as dbmrap.exe.",
-        "PostgreSQL Driver Error", MB_OK | MB_ICONERROR);
     cb(user_data, conn_handle, NODE_OTHER, "Failed to load libpq.dll", info->id,
        "", "", "");
     return;
@@ -262,12 +271,6 @@ void pg_run_query(ConnectionInfo *info, const char *active_db,
                   DbRowCallback row_cb, DbStatusCallback status_cb,
                   void *user_data) {
   if (!postgres_init()) {
-    MessageBoxA(
-        NULL,
-        "Failed to load libpq.dll.\n\nPlease run 'make -f Makefile.mingw "
-        "bundle-dlls' or place libpq.dll and its dependency DLLs (libcrypto, "
-        "libssl, etc.) in the same directory as dbmrap.exe.",
-        "PostgreSQL Driver Error", MB_OK | MB_ICONERROR);
     status_cb(user_data, "Failed to load libpq.dll. Make sure it is in the "
                          "executable directory or path.");
     return;

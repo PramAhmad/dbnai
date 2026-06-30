@@ -6,11 +6,25 @@
 SqliteLib sqlite_lib = {0};
 
 BOOL sqlite_init_lib(void) {
+  static BOOL alert_shown = FALSE;
   if (sqlite_lib.hLib)
     return TRUE;
 
   sqlite_lib.hLib = LoadLibraryA("sqlite3.dll");
   if (!sqlite_lib.hLib) {
+    if (!alert_shown) {
+      DWORD err = GetLastError();
+      char msg[1024];
+      snprintf(msg, sizeof(msg),
+               "Failed to load sqlite3.dll (Error Code: %lu).\n\n"
+               "Possible reasons:\n"
+               "1. Missing Visual C++ Redistributable (VCRedist)\n"
+               "2. Bitness mismatch (e.g. 64-bit DLL with 32-bit executable)\n\n"
+               "Please ensure sqlite3.dll is in the same folder as dbmrap.exe.",
+               err);
+      MessageBoxA(NULL, msg, "SQLite Driver Error", MB_OK | MB_ICONERROR);
+      alert_shown = TRUE;
+    }
     return FALSE;
   }
 
@@ -105,8 +119,6 @@ static void sqlite_load_foreign_keys(sqlite3 *db, DbTreeCallback cb,
 void sqlite_load_tree(ConnectionInfo *info, DbTreeCallback cb, void *user_data,
                       void *conn_handle) {
   if (!sqlite_init_lib()) {
-    MessageBoxA(NULL, "Failed to load sqlite3.dll.", "SQLite Driver Error",
-                MB_OK | MB_ICONERROR);
     cb(user_data, conn_handle, NODE_OTHER, "Failed to load sqlite3.dll",
        info->id, "", "", "");
     return;
@@ -148,8 +160,6 @@ void sqlite_run_query(ConnectionInfo *info, const char *active_db,
                       void *user_data) {
   (void)active_db;
   if (!sqlite_init_lib()) {
-    MessageBoxA(NULL, "Failed to load sqlite3.dll.", "SQLite Driver Error",
-                MB_OK | MB_ICONERROR);
     status_cb(user_data, "Failed to load sqlite3.dll");
     return;
   }
