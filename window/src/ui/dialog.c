@@ -320,3 +320,140 @@ void show_new_connection_dialog(HWND hwndParent, HINSTANCE hInst,
       CW_USEDEFAULT, 256, 220, hwndParent, NULL, hInst, ctx);
   CenterWindow(hwndSel, hwndParent);
 }
+
+typedef struct {
+  HWND hwndParent;
+  HINSTANCE hInst;
+  Sidebar *sidebar;
+  HWND hwndDlg;
+  HWND hwndDbName;
+} CreateDbCtx;
+
+#define IDC_BTN_OK 8001
+#define IDC_EDT_DBNAME 8002
+
+static void dummy_header_cb(void *user_data, int col_idx, const char *col_name) {
+  (void)user_data; (void)col_idx; (void)col_name;
+}
+static void dummy_row_cb(void *user_data, int row_idx, int col_idx, const char *value) {
+  (void)user_data; (void)row_idx; (void)col_idx; (void)value;
+}
+
+typedef struct {
+  BOOL success;
+  char error_msg[256];
+} Win32DdlStatusCtx;
+
+static void ddl_status_cb(void *user_data, const char *status_msg) {
+  Win32DdlStatusCtx *ctx = (Win32DdlStatusCtx *)user_data;
+  if (status_msg && strncmp(status_msg, "OK:", 3) == 0) {
+    ctx->success = TRUE;
+  } else {
+    ctx->success = FALSE;
+    strncpy(ctx->error_msg, status_msg ? status_msg : "Unknown error", sizeof(ctx->error_msg) - 1);
+  }
+}
+
+static BOOL CALLBACK SetFontProc(HWND hwnd, LPARAM lParam) {
+  SendMessageA(hwnd, WM_SETFONT, (WPARAM)lParam, TRUE);
+  return TRUE;
+}
+
+LRESULT CALLBACK CreateDbWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+  CreateDbCtx *ctx = (CreateDbCtx *)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+  switch (msg) {
+  case WM_CREATE: {
+    CREATESTRUCTA *cs = (CREATESTRUCTA *)lParam;
+    ctx = (CreateDbCtx *)cs->lpCreateParams;
+    SetWindowLongPtrA(hwnd, GWLP_USERDATA, (LONG_PTR)ctx);
+    ctx->hwndDlg = hwnd;
+
+    CreateWindowExA(0, "STATIC", "Database Name:", WS_CHILD | WS_VISIBLE, 10, 15, 120, 20, hwnd, NULL, cs->hInstance, NULL);
+    ctx->hwndDbName = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, 140, 15, 180, 20, hwnd, (HMENU)IDC_EDT_DBNAME, cs->hInstance, NULL);
+
+    CreateWindowExA(0, "BUTTON", "Create", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 130, 50, 90, 30, hwnd, (HMENU)IDC_BTN_OK, cs->hInstance, NULL);
+    CreateWindowExA(0, "BUTTON", "Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 230, 50, 90, 30, hwnd, (HMENU)IDC_BTN_CANCEL, cs->hInstance, NULL);
+
+    HFONT hFont = GetStockObject(DEFAULT_GUI_FONT);
+    if (hFont) {
+      EnumChildWindows(hwnd, (WNDENUMPROC)SetFontProc, (LPARAM)hFont);
+    }
+    break;
+  }
+  case WM_COMMAND: {
+    int wmId = LOWORD(wParam);
+    if (wmId == IDC_BTN_CANCEL) {
+      DestroyWindow(hwnd);
+      return 0;
+    }
+    if (wmId == IDC_BTN_OK) {
+      char dbname[128] = {0};
+      GetWindowTextA(ctx->hwndDbName, dbname, sizeof(dbname));
+      if (strlen(dbname) == 0) {
+        MessageBoxA(hwnd, "Database Name is required.", "Error", MB_OK | MB_ICONERROR);
+        return 0;
+      }
+
+      #include "../db/postgres.h"
+      #include "../db/mysql.h"
+      ConnectionInfo *info = connection_store_get(ctx->sidebar->conn_store, ctx->sidebar->right_click_data->conn_id);
+      if (info) {
+        char query[256];
+        snprintf(query, sizeof(query), "CREATE DATABASE %s;", dbname);
+        Win32DdlStatusCtx status_ctx = {FALSE, ""};
+        if (info->type == DB_TYPE_POSTGRESQL) {
+          pg_run_query(info, ctx->sidebar->right_click_data->db_name, query, dummy_header_cb, dummy_row_cb, ddl_status_cb, &status_ctx);
+        } else if (info->type == DB_TYPE_MYSQL) {
+          mysql_run_query(info, ctx->sidebar->right_click_data->db_name, query, dummy_header_cb, dummy_row_cb, ddl_status_cb, &status_ctx);
+        }
+        if (status_ctx.success) {
+          sidebar_refresh_connection_by_id(ctx->sidebar, info->id);
+          DestroyWindow(hwnd);
+        } else {
+          MessageBoxA(hwnd, status_ctx.error_msg, "Error", MB_OK | MB_ICONERROR);
+        }
+      } else {
+        DestroyWindow(hwnd);
+      }
+      return 0;
+    }
+    break;
+  }
+  case WM_DESTROY: {
+    HWND hwndOwner = GetWindow(hwnd, GW_OWNER);
+    if (hwndOwner) {
+      EnableWindow(hwndOwner, TRUE);
+      SetFocus(hwndOwner);
+    }
+    free(ctx);
+    break;
+  }
+  }
+  return DefWindowProcA(hwnd, msg, wParam, lParam);
+}
+
+void show_create_database_dialog(HWND hwndParent, HINSTANCE hInst, Sidebar *sidebar) {
+  WNDCLASSEXA wc = {0};
+  wc.cbSize = sizeof(WNDCLASSEXA);
+  wc.lpfnWndProc = CreateDbWndProc;
+  wc.hInstance = hInst;
+  wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+  wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+  wc.lpszClassName = "DBMRAP_CREATEDB_DIALOG";
+  RegisterClassExA(&wc);
+
+  CreateDbCtx *ctx = malloc(sizeof(CreateDbCtx));
+  if (!ctx)
+    return;
+  ctx->hwndParent = hwndParent;
+  ctx->hInst = hInst;
+  ctx->sidebar = sidebar;
+
+  EnableWindow(hwndParent, FALSE);
+
+  HWND hwndDlg = CreateWindowExA(
+      WS_EX_DLGMODALFRAME, "DBMRAP_CREATEDB_DIALOG", "Create Database",
+      WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE, CW_USEDEFAULT,
+      CW_USEDEFAULT, 350, 130, hwndParent, NULL, hInst, ctx);
+  CenterWindow(hwndDlg, hwndParent);
+}

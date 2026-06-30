@@ -13,6 +13,8 @@ typedef struct {
   NodeKind kind;
   char *conn_id;
   char *db_name;
+  char *schema_name;
+  char *table_name;
 } TreeNodeData;
 
 typedef struct {
@@ -20,6 +22,10 @@ typedef struct {
   HWND hwndButton;
   HWND hwndTreeView;
   ConnectionStore *conn_store;
+
+  HTREEITEM hRightClickItem;
+  TreeNodeData *right_click_data;
+  char right_click_label[256];
 } Sidebar;
 
 Sidebar *create_sidebar(HWND hwndParent, HINSTANCE hInst,
@@ -28,5 +34,6 @@ void resize_sidebar(Sidebar *sidebar, int x, int y, int width, int height);
 void load_saved_connections_to_tree(Sidebar *sidebar);
 void add_connection_node(Sidebar *sidebar, ConnectionInfo *info);
 void free_tree_node_data(TreeNodeData *data);
+void sidebar_refresh_connection_by_id(Sidebar *sidebar, const char *conn_id);
 
 #endif

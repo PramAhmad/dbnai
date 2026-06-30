@@ -82,6 +82,8 @@ static void *win32_tree_callback(void *user_data, void *parent_handle,
     data->kind = kind;
     data->conn_id = conn_id ? strdup(conn_id) : NULL;
     data->db_name = db_name ? strdup(db_name) : NULL;
+    data->schema_name = schema_name ? strdup(schema_name) : NULL;
+    data->table_name = table_name ? strdup(table_name) : NULL;
   }
 
   HTREEITEM hItem =
@@ -98,6 +100,8 @@ void add_connection_node(Sidebar *sidebar, ConnectionInfo *info) {
     data->kind = NODE_CONNECTION;
     data->conn_id = info->id ? strdup(info->id) : NULL;
     data->db_name = info->database ? strdup(info->database) : NULL;
+    data->schema_name = NULL;
+    data->table_name = NULL;
   }
 
   HTREEITEM hConn =
@@ -129,6 +133,32 @@ void free_tree_node_data(TreeNodeData *data) {
   if (data) {
     free(data->conn_id);
     free(data->db_name);
+    free(data->schema_name);
+    free(data->table_name);
     free(data);
+  }
+}
+
+void sidebar_refresh_connection_by_id(Sidebar *sidebar, const char *conn_id) {
+  if (!sidebar || !conn_id)
+    return;
+
+  HWND hwndTV = sidebar->hwndTreeView;
+  HTREEITEM hItem = (HTREEITEM)SendMessageA(hwndTV, TVM_GETNEXTITEM, TVGN_ROOT, 0);
+  while (hItem) {
+    TVITEMA tvi = {0};
+    tvi.mask = TVIF_PARAM | TVIF_HANDLE;
+    tvi.hItem = hItem;
+    SendMessageA(hwndTV, TVM_GETITEMA, 0, (LPARAM)&tvi);
+    TreeNodeData *data = (TreeNodeData *)tvi.lParam;
+    if (data && data->kind == NODE_CONNECTION && data->conn_id && strcmp(data->conn_id, conn_id) == 0) {
+      ConnectionInfo *info = connection_store_get(sidebar->conn_store, conn_id);
+      if (info) {
+        SendMessageA(hwndTV, TVM_DELETEITEM, 0, (LPARAM)hItem);
+        add_connection_node(sidebar, info);
+      }
+      break;
+    }
+    hItem = (HTREEITEM)SendMessageA(hwndTV, TVM_GETNEXTITEM, TVGN_NEXT, (LPARAM)hItem);
   }
 }

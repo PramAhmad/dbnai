@@ -1,0 +1,38 @@
+CC = x86_64-w64-mingw32-gcc
+CFLAGS = -Wall -Wextra -O2 -std=c11 -D_WIN32_WINNT=0x0601 -Isrc
+LDFLAGS = -mwindows -lcomctl32 -lcomdlg32 -lgdi32
+
+SOURCES = src/main.c \
+          src/ui/menu.c \
+          src/ui/sidebar.c \
+          src/ui/content.c \
+          src/ui/dialog.c \
+          src/ui/store.c \
+          src/db/postgres.c \
+          src/db/mysql.c \
+          src/db/sqlite.c
+
+OBJECTS = $(SOURCES:.c=.o)
+TARGET = dbmrap.exe
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(OBJECTS) $(TARGET)
+
+run: all
+	wine $(TARGET)
+
+bundle-dlls:
+	python3 download_dlls.py
+
+bundle-dll: bundle-dlls
+
+
+

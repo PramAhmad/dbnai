@@ -1,0 +1,24 @@
+# MSVC Makefile
+CC = cl.exe
+CFLAGS = /W3 /O2 /std:c11 /Isrc /D_CRT_SECURE_NO_WARNINGS
+LDFLAGS = /link /SUBSYSTEM:WINDOWS comctl32.lib comdlg32.lib gdi32.lib user32.lib shell32.lib
+
+SOURCES = src\main.c \
+          src\ui\menu.c \
+          src\ui\sidebar.c \
+          src\ui\content.c \
+          src\ui\dialog.c \
+          src\ui\store.c \
+          src\db\postgres.c \
+          src\db\mysql.c \
+          src\db\sqlite.c
+
+TARGET = dbmrap.exe
+
+all: $(TARGET)
+
+$(TARGET): $(SOURCES)
+	$(CC) $(CFLAGS) $(SOURCES) $(LDFLAGS) /OUT:$(TARGET)
+
+clean:
+	del /Q /S *.obj $(TARGET)

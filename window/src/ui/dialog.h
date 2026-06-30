@@ -6,5 +6,7 @@
 
 void show_new_connection_dialog(HWND hwndParent, HINSTANCE hInst,
                                 Sidebar *sidebar);
+void show_create_database_dialog(HWND hwndParent, HINSTANCE hInst,
+                                 Sidebar *sidebar);
 
 #endif
